@@ -9,6 +9,20 @@ Follow-up work intentionally outside the current delivery scope.
 - Add end-to-end tests for the HTTP server API (`/api/diagnose`, `/api/local-proxy/*`).
 - Add PAC file support (#45): serve `http://127.0.0.1:8081/proxy.pac` from the local proxy so users can configure their whole system in one step.
 
+## Open feature requests
+
+| Issue | Feature | Difficulty |
+|---|---|---|
+| #47 | Geolocation & exit node identity | Easy |
+| #48 | IP reputation & blacklist check | Easy-Medium |
+| #49 | HTTP header leak detection | Easy |
+| #50 | Speed & latency benchmarking | Easy-Medium |
+| #51 | Subscription link import & batch testing | Medium |
+| #52 | Proxy protocol auto-detection | Easy |
+| #53 | DNS-over-HTTPS / DNS-over-TLS verification | Medium |
+| #54 | Connection stability / long-lived test | Easy-Medium |
+| #55 | Kill switch / reconnection leak test | Medium-Hard |
+
 ## Medium priority
 
 - Add golden-file tests for text, JSON, Markdown and HTML output.
@@ -16,20 +30,13 @@ Follow-up work intentionally outside the current delivery scope.
 - Add configuration examples for authenticated proxies.
 - Improve documentation for common corporate proxy troubleshooting scenarios.
 
-## Optional future checks
-
-These require explicit design of data sources, privacy trade-offs and test fixtures before implementation:
-
-- Geolocation comparison (#7).
-- IP reputation enrichment (#8).
-
 ## Recently completed
 
 - **DNS leak detection** (`core/checks/dns_leak/`): compares DNS through proxy vs direct, detects bypass. Closes #5.
 - **WebRTC leak detection** (`core/checks/webrtc_leak/`): STUN probing via UDP, detects IP exposure through ICE. Closes #6.
-- **Hermetic proxy integration tests** (`internal/testproxy` + `core/adapters/adapters_integration_test.go` + `core/plugins/localproxy/plugin_test.go`): every adapter (direct, HTTP, HTTPS, SOCKS4, SOCKS5, auth, TLS-through-proxy) now runs against local fixtures, offline. Closes #35.
-- **Local forward proxy plugin** (`core/plugins/localproxy/`): expose the tested proxy on `127.0.0.1:8081` from the CLI (`--plugins local_proxy`) or the web GUI (start/stop + copy-ready commands).
-- **Installation methods**: `go install`, Homebrew cask, and cross-compiled release binaries via GoReleaser. Closes #21.
+- **Hermetic proxy integration tests** (`internal/testproxy` + `core/adapters/adapters_integration_test.go` + `core/plugins/localproxy/plugin_test.go`). Closes #35.
+- **Local forward proxy plugin** (`core/plugins/localproxy/`). Closes #44.
+- **Installation methods**: `go install`, Homebrew cask, release binaries. Closes #21.
 
 ## Documentation rules
 

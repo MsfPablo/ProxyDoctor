@@ -24,6 +24,8 @@ ProxyDoctor is a CLI tool that runs network diagnostics through your proxy and t
 
 ProxyDoctor answers these questions in seconds, then exposes the proxy as a local forward proxy so you can use it immediately.
 
+**v0.5.0** — 9 checks, plugin system, web GUI, Homebrew cask.
+
 ## Install
 
 ```bash
