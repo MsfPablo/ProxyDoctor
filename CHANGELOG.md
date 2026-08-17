@@ -1,5 +1,14 @@
 # Changelog
 
+## v0.5.0 - 2026-08-17
+
+### Added
+- **DNS leak detection** (`core/checks/dns_leak/check.go`): compares DNS resolution through direct and proxied paths to detect when DNS queries bypass the proxy tunnel. Detects same-IP resolution, public IP matching, and bogon filtering. Registered in `core/checks/register.go`. 18 unit tests in `core/checks/dns_leak/check_test.go`. Closes #5.
+- **WebRTC leak detection** (`core/checks/webrtc_leak/check.go`): sends real STUN Binding Requests (RFC 5389) via UDP to Google, Twilio, and Viagenie STUN servers to detect if WebRTC ICE gathering would expose the real IP. Parses XOR-MAPPED-ADDRESS and MAPPED-ADDRESS attributes (IPv4/IPv6). Detects local network ICE candidates. Registered in `core/checks/register.go`. 19 unit tests in `core/checks/webrtc_leak/check_test.go`. Closes #6.
+
+### Changed
+- README rewritten: simplified usage guide, documented external services used by each check.
+
 ## v0.4.0 - 2026-08-02
 
 ### Added
