@@ -81,6 +81,7 @@ Every check tells you **what it tests** and **what service it uses**.
 | `ipv6_leak` | Detects if IPv6 bypasses the proxy | [api6.ipify.org](https://api6.ipify.org), [ipv6.icanhazip.com](https://icanhazip.com), [v6.ident.me](https://v6.ident.me) |
 | `dns_leak` | Compares DNS through proxy vs direct path | System DNS on both adapter paths |
 | `webrtc_leak` | Detects if STUN/ICE could leak the real IP | STUN probes to Google, Twilio, and Viagenie servers via UDP |
+| `header_leak` | Detects if forwarded headers leak the real client IP or internal network metadata | [httpbin.org/headers](https://httpbin.org/headers), [httpbin.org/ip](https://httpbin.org/ip) |
 
 ### Plugin Checks
 
@@ -171,7 +172,7 @@ cmd/cli/              CLI (diagnose, list-checks, version)
 cmd/server/           HTTP server + web GUI
 core/engine/          Orchestration engine + dependency DAG
 core/check/           Checker interface + result types
-core/checks/          Built-in checks (public_ip, dns_resolve, tls_cert, port_scan, ipv6_leak, dns_leak, webrtc_leak)
+core/checks/          Built-in checks (public_ip, dns_resolve, tls_cert, port_scan, ipv6_leak, dns_leak, webrtc_leak, header_leak)
 core/adapters/        Proxy implementations (Direct, HTTP, HTTPS, SOCKS4, SOCKS5)
 core/plugin/          Plugin system interfaces
 core/plugins/         Plugin implementations (route_trace, mcp_server, local_proxy)

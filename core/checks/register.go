@@ -6,6 +6,7 @@ import (
 	"github.com/francomano/proxydoctor/core/check"
 	dnsleak "github.com/francomano/proxydoctor/core/checks/dns_leak"
 	dnsresolve "github.com/francomano/proxydoctor/core/checks/dns_resolve"
+	headerleak "github.com/francomano/proxydoctor/core/checks/header_leak"
 	ipv6leak "github.com/francomano/proxydoctor/core/checks/ipv6_leak"
 	portscan "github.com/francomano/proxydoctor/core/checks/port_scan"
 	publicip "github.com/francomano/proxydoctor/core/checks/public_ip"
@@ -24,6 +25,7 @@ func RegisterDefaults(registry *engine.CheckRegistry) error {
 		ipv6leak.NewIPv6LeakCheck(),
 		dnsleak.NewDNSLeakCheck(),
 		webrtcleak.NewWebRTCLeakCheck(),
+		headerleak.NewHeaderLeakCheck(),
 	}
 	for _, checker := range defaults {
 		if err := registry.Register(checker); err != nil {
