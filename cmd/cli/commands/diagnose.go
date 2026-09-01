@@ -27,6 +27,7 @@ var (
 	compare   bool
 	timeout   string
 	checks    string
+	noColor   bool
 )
 
 const (
@@ -77,6 +78,7 @@ func init() {
 	diagnoseCmd.Flags().BoolVar(&compare, "compare", false, "Compare with direct connection")
 	diagnoseCmd.Flags().StringVar(&timeout, "timeout", engine.DefaultDiagnosisTimeout.String(), "Diagnosis timeout (1s to 5m, e.g., 10s, 2m)")
 	diagnoseCmd.Flags().StringVar(&checks, "checks", "", "Comma-separated check IDs or categories to run (empty/all = all checks)")
+	diagnoseCmd.Flags().BoolVar(&noColor, "no-color", false, "Disable emoji in text output (for CI, logs, and pipes)")
 
 	diagnoseCmd.MarkFlagRequired("url")
 }
@@ -296,16 +298,11 @@ func formatResults(report *engine.DiagnosisReport, format string, outPath string
 
 func formatText(report *engine.DiagnosisReport) string {
 	var out string
-	out += "📊 Diagnosis Results\n"
+	out += textHeader("Diagnosis Results")
 	out += "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
 
 	for i, result := range report.Results {
-		status := "✅"
-		if result.IsFailed() {
-			status = "❌"
-		} else if result.IsError() {
-			status = "⚠️"
-		}
+		status := statusMarker(result)
 
 		out += fmt.Sprintf("%d. %s %s\n", i+1, status, result.ID)
 		out += fmt.Sprintf("   Status: %s | Severity: %s | Confidence: %.0f%%\n",
@@ -318,6 +315,41 @@ func formatText(report *engine.DiagnosisReport) string {
 		report.ChecksExecuted, report.ChecksFailed, report.CriticalFindings)
 	out += fmt.Sprintf("Total Time: %s\n", report.ExecutionTime)
 	return out
+}
+
+// statusMarker returns the per-result status label for text output. When
+// --no-color is set, the emoji are replaced with plain bracketed markers so
+// the report stays readable in CI logs, files, and pipes (#42).
+func statusMarker(result check.CheckResult) string {
+	failed, errored := result.IsFailed(), result.IsError()
+	if noColor {
+		switch {
+		case failed:
+			return "[FAIL]"
+		case errored:
+			return "[ERROR]"
+		default:
+			return "[PASS]"
+		}
+	}
+	switch {
+	case failed:
+		return "❌"
+	case errored:
+		return "⚠️"
+	default:
+		return "✅"
+	}
+}
+
+// textHeader returns the report header line, dropping the emoji when
+// --no-color is set (#42). The box-drawing rule below it is left untouched:
+// it is not emoji and stays readable in plain-text logs.
+func textHeader(label string) string {
+	if noColor {
+		return label + "\n"
+	}
+	return "📊 " + label + "\n"
 }
 
 func formatJSON(report *engine.DiagnosisReport) string {
@@ -610,7 +642,7 @@ func formatMarkdown(report *engine.DiagnosisReport) string {
 
 func formatComparisonText(report *engine.ComparisonReport) string {
 	var out string
-	out += "📊 ProxyDoctor Comparison Results\n"
+	out += textHeader("ProxyDoctor Comparison Results")
 	out += "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
 	out += "Direct Connection\n"
 	out += formatResultSummary(report.DirectReport)

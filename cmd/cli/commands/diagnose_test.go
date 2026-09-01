@@ -230,6 +230,43 @@ func TestFormatHTMLIncludesSummaryAndEvidence(t *testing.T) {
 	}
 }
 
+// TestFormatTextOmitsEmojiWhenNoColor guards #42: with --no-color the text
+// report drops every emoji and swaps the per-result status glyph for a plain
+// bracketed marker, so the output is safe for CI logs and pipes. JSON/HTML/
+// Markdown output are unaffected.
+func TestFormatTextOmitsEmojiWhenNoColor(t *testing.T) {
+	orig := noColor
+	t.Cleanup(func() { noColor = orig })
+
+	report := &engine.DiagnosisReport{
+		ChecksExecuted: 2,
+		ChecksFailed:   1,
+		Results: []check.CheckResult{
+			{ID: "public_ip", Status: check.StatusPassed, Severity: check.SeverityInfo, Confidence: 0.9, Explanation: "Public IP resolved via proxy."},
+			{ID: "dns_leak", Status: check.StatusFailed, Severity: check.SeverityCritical, Confidence: 0.8, Explanation: "DNS bypassed the proxy."},
+		},
+	}
+
+	noColor = true
+	out := formatText(report)
+	for _, emoji := range []string{"📊", "✅", "❌", "⚠️"} {
+		if strings.Contains(out, emoji) {
+			t.Errorf("no-color text output still contains emoji %q:\n%s", emoji, out)
+		}
+	}
+	for _, want := range []string{"[PASS]", "[FAIL]", "Diagnosis Results", "public_ip", "dns_leak"} {
+		if !strings.Contains(out, want) {
+			t.Fatalf("no-color text output missing %q:\n%s", want, out)
+		}
+	}
+
+	// Markdown is unaffected by --no-color: it still uses emoji status markers.
+	md := formatMarkdown(report)
+	if !strings.Contains(md, "✅") {
+		t.Errorf("markdown output should be unaffected by --no-color but lost its emoji:\n%s", md)
+	}
+}
+
 func newTestRegistry() *engine.CheckRegistry {
 	registry := engine.NewCheckRegistry()
 	if err := checkspkg.RegisterDefaults(registry); err != nil {
