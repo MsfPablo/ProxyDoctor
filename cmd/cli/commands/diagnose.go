@@ -308,8 +308,8 @@ func formatText(report *engine.DiagnosisReport) string {
 		}
 
 		out += fmt.Sprintf("%d. %s %s\n", i+1, status, result.ID)
-		out += fmt.Sprintf("   Status: %s | Severity: %s | Confidence: %.0f%%\n",
-			result.Status, result.Severity, result.Confidence*100)
+		out += fmt.Sprintf("   Status: %s | Severity: %s | Confidence: %.0f%% [%s]\n",
+			result.Status, result.Severity, result.Confidence*100, result.ExecutionTime)
 		out += fmt.Sprintf("   %s\n\n", result.Explanation)
 	}
 

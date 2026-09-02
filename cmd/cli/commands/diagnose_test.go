@@ -230,6 +230,47 @@ func TestFormatHTMLIncludesSummaryAndEvidence(t *testing.T) {
 	}
 }
 
+// TestFormatTextIncludesPerCheckExecutionTime guards #43: every check result
+// already carries ExecutionTime, but formatText never rendered it, so users
+// could not see which check was slow. The duration must appear, human-readable,
+// on each result's status line.
+func TestFormatTextIncludesPerCheckExecutionTime(t *testing.T) {
+	report := &engine.DiagnosisReport{
+		ChecksExecuted:   2,
+		ChecksFailed:     0,
+		CriticalFindings: 0,
+		ExecutionTime:    2 * time.Second,
+		Results: []check.CheckResult{
+			{
+				ID:            "public_ip",
+				Status:        check.StatusPassed,
+				Severity:      check.SeverityInfo,
+				Confidence:    0.95,
+				Explanation:   "Public IP resolved via proxy.",
+				ExecutionTime: 1200 * time.Millisecond,
+			},
+			{
+				ID:            "dns_resolve",
+				Status:        check.StatusPassed,
+				Severity:      check.SeverityInfo,
+				Confidence:    0.90,
+				Explanation:   "DNS resolved through proxy.",
+				ExecutionTime: 350 * time.Millisecond,
+			},
+		},
+	}
+
+	out := formatText(report)
+
+	// time.Duration.String() renders these as "1.2s" and "350ms" — the
+	// human-readable forms the issue asks for, and they must be bracketed.
+	for _, want := range []string{"[1.2s]", "[350ms]", "public_ip", "dns_resolve"} {
+		if !strings.Contains(out, want) {
+			t.Fatalf("text output missing %q:\n%s", want, out)
+		}
+	}
+}
+
 func newTestRegistry() *engine.CheckRegistry {
 	registry := engine.NewCheckRegistry()
 	if err := checkspkg.RegisterDefaults(registry); err != nil {
