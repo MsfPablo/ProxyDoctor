@@ -66,6 +66,39 @@ proxydoctor-server
 # Open http://localhost:8080
 ```
 
+## Shell Completion
+
+Tab completion is available for bash, zsh, fish, and PowerShell. Generate a
+script and source it once per shell:
+
+```bash
+# bash (Linux)
+proxydoctor completion bash | sudo tee /etc/bash_completion.d/proxydoctor >/dev/null
+
+# bash (macOS)
+proxydoctor completion bash > "$(brew --prefix)/etc/bash_completion.d/proxydoctor"
+
+# zsh — save to a directory on your $fpath
+proxydoctor completion zsh > "${fpath[1]}/_proxydoctor"
+
+# fish
+proxydoctor completion fish > ~/.config/fish/completions/proxydoctor.fish
+
+# PowerShell
+proxydoctor completion powershell >> $PROFILE
+```
+
+Start a new shell, then tab through subcommands and flags. Beyond flag *names*,
+flag *values* complete too: `--checks` offers check IDs and categories
+(`public_ip`, `dns_leak`, `network`, `all`, …), `--export` offers
+`text`/`json`/`html`/`markdown`, and `--proxy-type` offers
+`auto`/`http`/`https`/`socks4`/`socks5`.
+
+> The generated script is keyed to the root command name `proxyctl`, so
+> completion activates for that name. If you invoke the binary under a different
+> name (the `proxydoctor` alias, or a raw `go build` binary), install the script
+> for each name you use.
+
 ## Checks
 
 Every check tells you **what it tests** and **what service it uses**.
