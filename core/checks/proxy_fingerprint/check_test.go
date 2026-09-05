@@ -64,6 +64,11 @@ func handleMock(c net.Conn, dialect string) {
 	case "http":
 		// Reply with an HTTP status line; HTTP probe checks "HTTP/" prefix.
 		_, _ = c.Write([]byte("HTTP/1.1 200 Connection established\r\n\r\n"))
+	case "silent":
+		// Accept, then never reply: drain inbound bytes until the probe gives
+		// up and closes. The probe's read must hit its deadline rather than
+		// an immediate EOF so we can prove the timeouts are enforced.
+		_, _ = io.Copy(io.Discard, c)
 	}
 }
 
@@ -83,10 +88,10 @@ type fakeCtx struct {
 	cfg check.ProxyConfig
 }
 
-func (f *fakeCtx) GetURL() string                                    { return "" }
-func (f *fakeCtx) GetProxyConfig() check.ProxyConfig                { return f.cfg }
-func (f *fakeCtx) GetDirectAdapter() check.NetworkAdapter           { return nil }
-func (f *fakeCtx) GetProxyAdapter() check.NetworkAdapter            { return nil }
+func (f *fakeCtx) GetURL() string                              { return "" }
+func (f *fakeCtx) GetProxyConfig() check.ProxyConfig           { return f.cfg }
+func (f *fakeCtx) GetDirectAdapter() check.NetworkAdapter      { return nil }
+func (f *fakeCtx) GetProxyAdapter() check.NetworkAdapter       { return nil }
 func (f *fakeCtx) GetSharedData(key string) interface{}        { return nil }
 func (f *fakeCtx) SetSharedData(key string, value interface{}) {}
 func (f *fakeCtx) GetTimeout() time.Duration                   { return 5 * time.Second }
@@ -180,6 +185,32 @@ func TestUnreachableEndpointErrors(t *testing.T) {
 	r := runCheck(t, c, check.ProxyTypeSOCKS5, addr)
 	if r.Status != check.StatusError {
 		t.Fatalf("unreachable proxy should yield error, got %s: %s", r.Status, r.Explanation)
+	}
+}
+
+// TestSilentPeerIsBounded guards the per-connection read/write deadlines: a
+// peer that accepts the TCP handshake but never answers a greeting must not
+// stall the check. With a shortened probeTimeout the whole run must finish
+// well under the default 5s per-probe budget and report an error.
+func TestSilentPeerIsBounded(t *testing.T) {
+	orig := probeTimeout
+	probeTimeout = 200 * time.Millisecond
+	t.Cleanup(func() { probeTimeout = orig })
+
+	addr := startMockProxy(t, "silent")
+	c := &ProxyFingerprintCheck{dialer: stdDialer{}}
+
+	start := time.Now()
+	r := runCheck(t, c, check.ProxyTypeSOCKS5, addr)
+	elapsed := time.Since(start)
+
+	// Three probes each wait out probeTimeout before giving up, so the upper
+	// bound is generous compared to the ~600ms the shortened deadline implies.
+	if elapsed > 3*time.Second {
+		t.Fatalf("silent peer stalled the check for %v, exceeding the deadline budget", elapsed)
+	}
+	if r.Status != check.StatusError {
+		t.Fatalf("a silent peer should yield an error, got %s: %s", r.Status, r.Explanation)
 	}
 }
 

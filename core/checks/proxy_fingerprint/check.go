@@ -25,8 +25,17 @@ func (stdDialer) DialTimeout(network, address string, timeout time.Duration) (ne
 }
 
 // probeTimeout is the per-handshake deadline. Fingerprinting opens one fresh
-// connection per protocol so a misbehaving peer cannot starve the others.
-const probeTimeout = 5 * time.Second
+// connection per protocol so a misbehaving peer cannot starve the others. It is
+// a var (not a const) so tests can shorten it and exercise the timeout path
+// without waiting 5s per probe.
+var probeTimeout = 5 * time.Second
+
+// setProbeDeadline bounds every read and write on a freshly dialed connection
+// so a peer that accepts the TCP handshake but then stays silent cannot stall
+// the check past probeTimeout.
+func setProbeDeadline(conn net.Conn) {
+	_ = conn.SetDeadline(time.Now().Add(probeTimeout))
+}
 
 // fingerprintTarget is the host:port used inside the SOCKS4/HTTP-CONNECT probe
 // payloads. The proxy is only asked to *attempt* a connect; whether it reaches
@@ -125,6 +134,7 @@ func probeSOCKS5(address string, dialer probeDialer) probeResult {
 		return probeResult{detail: fmt.Sprintf("dial: %v", err)}
 	}
 	defer conn.Close()
+	setProbeDeadline(conn)
 
 	if _, err := conn.Write([]byte{0x05, 0x01, 0x00}); err != nil {
 		return probeResult{detail: fmt.Sprintf("greeting write: %v", err)}
@@ -158,6 +168,7 @@ func probeSOCKS4(address string, dialer probeDialer) probeResult {
 		return probeResult{detail: fmt.Sprintf("dial: %v", err)}
 	}
 	defer conn.Close()
+	setProbeDeadline(conn)
 
 	host, port, ok := splitHostPort(fingerprintTarget)
 	if !ok {
@@ -203,6 +214,7 @@ func probeHTTPConnect(address string, dialer probeDialer) probeResult {
 		return probeResult{detail: fmt.Sprintf("dial: %v", err)}
 	}
 	defer conn.Close()
+	setProbeDeadline(conn)
 
 	req := fmt.Sprintf("CONNECT %s HTTP/1.1\r\nHost: %s\r\nUser-Agent: ProxyDoctor-fingerprint\r\n\r\n", fingerprintTarget, fingerprintTarget)
 	if _, err := conn.Write([]byte(req)); err != nil {
