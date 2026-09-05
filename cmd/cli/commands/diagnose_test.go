@@ -1,6 +1,9 @@
 package commands
 
 import (
+	"bytes"
+	"io"
+	"os"
 	"sort"
 	"strings"
 	"testing"
@@ -264,6 +267,95 @@ func TestFormatTextOmitsEmojiWhenNoColor(t *testing.T) {
 	md := formatMarkdown(report)
 	if !strings.Contains(md, "✅") {
 		t.Errorf("markdown output should be unaffected by --no-color but lost its emoji:\n%s", md)
+	}
+}
+
+// TestDiagnoseNoColorStdoutContainsNoEmoji guards #42 end to end: executing the
+// real command with --no-color must produce zero emoji across the entire stdout
+// (banner, header, and error paths included), not just in the formatted report.
+// It drives the command through an invalid timeout so runDiagnose exits before
+// touching the network.
+func TestDiagnoseNoColorStdoutContainsNoEmoji(t *testing.T) {
+	orig := noColor
+	origStdout := os.Stdout
+	origArgs := os.Args
+	t.Cleanup(func() {
+		noColor = orig
+		os.Stdout = origStdout
+		os.Args = origArgs
+	})
+
+	root := RootCmd
+	root.SetArgs([]string{"diagnose", "--url", "https://example.com", "--timeout", "3x", "--no-color"})
+
+	r, w, err := os.Pipe()
+	if err != nil {
+		t.Fatalf("pipe: %v", err)
+	}
+	os.Stdout = w
+
+	outCh := make(chan string)
+	go func() {
+		var buf bytes.Buffer
+		io.Copy(&buf, r)
+		outCh <- buf.String()
+	}()
+
+	err = root.Execute()
+	w.Close()
+	out := <-outCh
+	if err == nil {
+		t.Fatalf("expected invalid-timeout error, got nil")
+	}
+
+	for _, emoji := range []string{"🩺", "🔍", "📋", "🧪", "🔗", "✅", "❌", "⚠️", "📊"} {
+		if strings.Contains(out, emoji) {
+			t.Errorf("--no-color stdout still contains emoji %q:\n%s", emoji, out)
+		}
+	}
+	if !strings.Contains(out, "ProxyDoctor") {
+		t.Errorf("--no-color stdout missing banner/header:\n%s", out)
+	}
+}
+
+// TestFormatTextIncludesPerCheckExecutionTime guards #43: every check result
+// already carries ExecutionTime, but formatText never rendered it, so users
+// could not see which check was slow. The duration must appear, human-readable,
+// on each result's status line.
+func TestFormatTextIncludesPerCheckExecutionTime(t *testing.T) {
+	report := &engine.DiagnosisReport{
+		ChecksExecuted:   2,
+		ChecksFailed:     0,
+		CriticalFindings: 0,
+		ExecutionTime:    2 * time.Second,
+		Results: []check.CheckResult{
+			{
+				ID:            "public_ip",
+				Status:        check.StatusPassed,
+				Severity:      check.SeverityInfo,
+				Confidence:    0.95,
+				Explanation:   "Public IP resolved via proxy.",
+				ExecutionTime: 1200 * time.Millisecond,
+			},
+			{
+				ID:            "dns_resolve",
+				Status:        check.StatusPassed,
+				Severity:      check.SeverityInfo,
+				Confidence:    0.90,
+				Explanation:   "DNS resolved through proxy.",
+				ExecutionTime: 350 * time.Millisecond,
+			},
+		},
+	}
+
+	out := formatText(report)
+
+	// time.Duration.String() renders these as "1.2s" and "350ms" — the
+	// human-readable forms the issue asks for, and they must be bracketed.
+	for _, want := range []string{"[1.2s]", "[350ms]", "public_ip", "dns_resolve"} {
+		if !strings.Contains(out, want) {
+			t.Fatalf("text output missing %q:\n%s", want, out)
+		}
 	}
 }
 

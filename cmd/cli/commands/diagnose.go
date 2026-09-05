@@ -47,7 +47,11 @@ It analyzes connectivity through proxies and identifies issues.`,
 		}
 		fmt.Println()
 		fmt.Println("  ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓")
-		fmt.Println("  ┃  🩺 ProxyDoctor                                      ┃")
+		if noColor {
+			fmt.Println("  ┃  ProxyDoctor                                        ┃")
+		} else {
+			fmt.Println("  ┃  🩺 ProxyDoctor                                      ┃")
+		}
 		fmt.Println("  ┃  Comprehensive proxy diagnostics tool                ┃")
 		fmt.Println("  ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛")
 		fmt.Println("  by Marco Francomano — github.com/francomano/ProxyDoctor")
@@ -84,18 +88,18 @@ func init() {
 }
 
 func runDiagnose(cmd *cobra.Command, args []string) error {
-	fmt.Printf("🔍 ProxyDoctor v0.4.0 - Proxy Diagnostics Tool\n")
+	fmt.Printf("%s ProxyDoctor v0.4.0 - Proxy Diagnostics Tool\n", statusGlyph("🔍", ""))
 	fmt.Printf("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n")
 
 	diagnosisTimeout, err := parseDiagnosisTimeout(timeout)
 	if err != nil {
-		fmt.Printf("❌ Invalid timeout: %v\n", err)
+		fmt.Printf("%s Invalid timeout: %v\n", statusGlyph("❌", "[ERROR]"), err)
 		return err
 	}
 
 	proxyConfig, err := utils.ParseProxyConfig(proxyStr, proxyType)
 	if err != nil {
-		fmt.Printf("❌ Invalid proxy configuration: %v\n", err)
+		fmt.Printf("%s Invalid proxy configuration: %v\n", statusGlyph("❌", "[ERROR]"), err)
 		return err
 	}
 
@@ -106,7 +110,7 @@ func runDiagnose(cmd *cobra.Command, args []string) error {
 
 	mgr, err := loadPlugins(registry, cmd.PersistentFlags().Changed)
 	if err != nil {
-		fmt.Printf("❌ Plugin load failed: %v\n", err)
+		fmt.Printf("%s Plugin load failed: %v\n", statusGlyph("❌", "[ERROR]"), err)
 		return err
 	}
 	if mgr != nil {
@@ -115,7 +119,7 @@ func runDiagnose(cmd *cobra.Command, args []string) error {
 
 	checkIDs, err := parseCheckFilters(checks, registry)
 	if err != nil {
-		fmt.Printf("❌ Invalid checks: %v\n", err)
+		fmt.Printf("%s Invalid checks: %v\n", statusGlyph("❌", "[ERROR]"), err)
 		return err
 	}
 
@@ -129,26 +133,26 @@ func runDiagnose(cmd *cobra.Command, args []string) error {
 		Timeout:     diagnosisTimeout,
 	}
 
-	fmt.Printf("📋 Running diagnosis for: %s\n", url)
+	fmt.Printf("%s Running diagnosis for: %s\n", statusGlyph("📋", ""), url)
 	if len(checkIDs) > 0 {
-		fmt.Printf("🧪 Checks: %s\n", strings.Join(checkIDs, ", "))
+		fmt.Printf("%s Checks: %s\n", statusGlyph("🧪", ""), strings.Join(checkIDs, ", "))
 	}
 	if proxyConfig.Type != check.ProxyTypeDirect {
-		fmt.Printf("🔗 Via proxy: %s://%s:%d\n", proxyConfig.Type, proxyConfig.Host, proxyConfig.Port)
+		fmt.Printf("%s Via proxy: %s://%s:%d\n", statusGlyph("🔗", ""), proxyConfig.Type, proxyConfig.Host, proxyConfig.Port)
 	}
 	fmt.Printf("\n")
 
 	if compare {
 		comparisonReport, err := orchestrator.ExecuteComparison(diagRequest)
 		if err != nil {
-			fmt.Printf("❌ Comparison failed: %v\n", err)
+			fmt.Printf("%s Comparison failed: %v\n", statusGlyph("❌", "[ERROR]"), err)
 			return err
 		}
 
 		if err := formatComparisonResults(comparisonReport, exportFmt, output); err != nil {
-			fmt.Printf("❌ Failed to save output: %v\n", err)
+			fmt.Printf("%s Failed to save output: %v\n", statusGlyph("❌", "[ERROR]"), err)
 		} else if output != "" {
-			fmt.Printf("✅ Results saved to %s\n", output)
+			fmt.Printf("%s Results saved to %s\n", statusGlyph("✅", "[OK]"), output)
 		}
 
 		return nil
@@ -156,17 +160,27 @@ func runDiagnose(cmd *cobra.Command, args []string) error {
 
 	report, err := orchestrator.Execute(diagRequest)
 	if err != nil {
-		fmt.Printf("❌ Diagnosis failed: %v\n", err)
+		fmt.Printf("%s Diagnosis failed: %v\n", statusGlyph("❌", "[ERROR]"), err)
 		return err
 	}
 
 	if err := formatResults(report, exportFmt, output); err != nil {
-		fmt.Printf("❌ Failed to save output: %v\n", err)
+		fmt.Printf("%s Failed to save output: %v\n", statusGlyph("❌", "[ERROR]"), err)
 	} else if output != "" {
-		fmt.Printf("✅ Results saved to %s\n", output)
+		fmt.Printf("%s Results saved to %s\n", statusGlyph("✅", "[OK]"), output)
 	}
 
 	return nil
+}
+
+// statusGlyph returns the ANSI/emoji glyph for interactive output, or the plain
+// bracketed marker when --no-color is set, so the entire CLI stays clean for CI
+// logs and pipes (#42).
+func statusGlyph(emoji, plain string) string {
+	if noColor {
+		return plain
+	}
+	return emoji
 }
 
 func parseDiagnosisTimeout(value string) (time.Duration, error) {
@@ -305,8 +319,8 @@ func formatText(report *engine.DiagnosisReport) string {
 		status := statusMarker(result)
 
 		out += fmt.Sprintf("%d. %s %s\n", i+1, status, result.ID)
-		out += fmt.Sprintf("   Status: %s | Severity: %s | Confidence: %.0f%%\n",
-			result.Status, result.Severity, result.Confidence*100)
+		out += fmt.Sprintf("   Status: %s | Severity: %s | Confidence: %.0f%% [%s]\n",
+			result.Status, result.Severity, result.Confidence*100, result.ExecutionTime)
 		out += fmt.Sprintf("   %s\n\n", result.Explanation)
 	}
 
